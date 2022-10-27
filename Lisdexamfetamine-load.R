@@ -1,7 +1,11 @@
 ####
 # Load PBS ADHD data into RDS
 
-PBSDIR="/mnt/pearson/PBS 10% Sample/Source Data/"
+#PBSDIR="/mnt/pearson/PBS 10% Sample/Source Data/"
+
+#comment out Malcolm directory - unsure how to make this part more reproducible
+PBSDIR="Y:/PBS 10% Sample/Source Data/"
+
 ########################################
 #load libraries
 library(haven)
@@ -11,6 +15,7 @@ library(sessioninfo)
 library(data.table)
 
 session_info()
+time_start<-sys_time()
 
 # log current git commit
 system('git --no-pager log -1 --date=short --no-decorate --pretty=format:"%d @ %h %cd" HEAD')
@@ -49,6 +54,8 @@ for(yr in c("2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022")) {
   
   ##not sure if grep or grepl is any quicker
   
+  ##I have had some issues with bread if data is messy (i.e, if an ATC code was recorded as C02,AC02 it would move the second half to the next column)
+  
   ADHD_tmp <- pbs[substr(ATC_CODE,1,5)=='N06BA'|substr(ATC_CODE,1,7)=='C02AC02']
  
    rm(pbs)
@@ -60,4 +67,8 @@ for(yr in c("2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022")) {
    rm(ADHD_tmp)
 }
 
-saveRDS(ADHD, file = "data/ADHD.rds")
+saveRDS(ADHD, file = "data/ADHD.Rds")
+
+time_end<- sys_time()
+
+time_end - time_start
