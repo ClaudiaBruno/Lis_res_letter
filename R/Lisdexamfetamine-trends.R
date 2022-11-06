@@ -4,7 +4,7 @@
 # Author:		Claudia Bruno (Code review by Malcolm Gillies)		            			#
 #           School of Population Health                                      #
 #           UNSW Sydney							                                    	#
-print(paste0("Last updated ", Sys.Date))			                                #
+print(paste0("Last updated ", Sys.Date()))			                                #
 #################################################################################
 #add libraries based on ARIMA code given in 
 #"Interrupted time series analysis using Autoregressive #
@@ -28,6 +28,7 @@ library(lubridate)
 library(sessioninfo)
 library(DBI)
 library(data.table)
+library(purr)
 
 session_info()
 
@@ -46,46 +47,15 @@ setnames(ADHD, names(ADHD), tolower(names(ADHD)))
 ADHD %<>% filter(supp_date < as.Date("2022-07-01"))
 
 
-##functions and themes to be used
-#themes for graphs
-theme_Publication <- function(base_size=14, base_family="sans") {
-  library(grid)
-  library(ggthemes)
-  (theme_foundation(base_size=base_size, base_family=base_family)
-    + theme(plot.title = element_text(face = "bold",
-                                      size = rel(1.25), hjust = 0.5),
-            text = element_text(),
-            panel.background = element_rect(colour = NA),
-            plot.background = element_rect(colour = NA),
-            panel.border = element_rect(colour = NA),
-            axis.title = element_text(face = "bold",size = rel(1)),
-            axis.title.y = element_text(angle=90,vjust =2),
-            axis.title.x = element_text(vjust = -0.2),
-            axis.text = element_text(), 
-            axis.line.x = element_line(colour="black"),
-            axis.line.y = element_line(colour="black"),
-            axis.ticks = element_line(),
-            panel.grid.major = element_line(colour="#f0f0f0"),
-            panel.grid.minor = element_blank(),
-            legend.key = element_rect(colour = NA),
-            legend.position = "bottom",
-            legend.direction = "horizontal",
-            legend.key.size= unit(0.6, "cm"),
-            #legend.margin = unit(0.2, "cm"),
-            legend.title = element_text(),
-            plot.margin=unit(c(10,5,5,5),"mm"),
-            strip.background=element_rect(colour="#f0f0f0",fill="#f0f0f0"),
-            strip.text = element_text(face="bold")
-    ))
-  
-}
 
 
 #Prepare data for following analysis
 #create new age group function for children and adults
 agegrp<- function(age){
-  case_when(age  %between%  c(-130,17) ~ "Children (0-17 years)",
-            age >=18 ~ "Adults (\u2265 18 years)")
+  cut(age, breaks = c(-130, 18,25,130),  # randomised DOB -> neg age
+      right=FALSE, ordered_result=TRUE,
+      labels = c("0--17 years",
+                 "18--24 years", "25+ years"))
 }
 ##################################
 
@@ -102,7 +72,7 @@ ADHD[, ':=' (
   sex = if_else(patient_sex == "M", "Male", "Female"), 
   mos = lubridate::ymd(paste(year(supp_date), month(supp_date), "01")), 
   
-  medicine=fcase(
+  class=fcase(
     atc_code == 'C02AC02', 'Nonstimulant',
     atc_code == 'N06BA02', 'Stimulant',
     atc_code == 'N06BA04', 'Stimulant',
@@ -119,13 +89,25 @@ ADHD[, ':=' (
     default = "Other"))] %>%  #other includes modafinil and armodafinil 
   .[, .(pat_id, supp_date, mos, year,
         item_code, 
-        atc_code, medicine, medicine, age_group, sex)]
+        atc_code, class, medicine, age_group, sex, 
+        rstr_num,
+        stream_auth_code)]
 
 
-# Convert data to time series object - dispensings
-disp_medicine<- 
-  ADHD[age>17, .N, by = .(medicine, mos)] %>% 
-  arrange( medicine, mos) 
+#remove dispensing of other medicine (modafinal and armodafinil and dispensings for dexamfetamine with narcolepsy codes)
+`%notin%` <- negate(`%in%`)
+
+
+ADHD[medicine != "Other", ] %>% 
+  .[rstr_num %notin% c(1236, 6227, 5983,6017, 6250, 6547, 8694, 10935, 10967, 10968, 10970) | stream_auth_code %notin% c(1236, 6227, 5983,6017, 6250, 6547, 8694, 10935, 10967, 10968, 10970) ,   ]
+
+
+print(paste("Number of people with an ADHD dispensing between ", min(ADHD$supp_date), " and " max(ADHD$supp_date), " is " length(unique(ADHD$pat_id))))
+      
+      # Convert data to time series object - dispensings
+      disp_medicine<- 
+        ADHD[age_group != "0--17 years", .N, by = .(medicine, mos)] %>% 
+        arrange( medicine, mos) 
 
 #for now i will just convert and run analysis on lisdexamfetamine only
 
