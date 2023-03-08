@@ -1,5 +1,2 @@
-# Lisdexamfetamine_letter
-
-#RR project in Rstudio
- Project for Lisdexamfetamine letter analysis - git control
-
+# Lis_res_letter
+Repository for analysis of changes in subsidy policy of lisdexamfetamine. 
