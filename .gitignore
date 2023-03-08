@@ -3,3 +3,8 @@
 .RData
 .Ruserdata
 .Rds
+.Rdata
+.httr-oauth
+.DS_Store
+.pdf
+.docx
