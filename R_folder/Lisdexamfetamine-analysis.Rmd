@@ -67,23 +67,19 @@ time_start <- Sys.time()
 # system('git --no-pager log -1 --date=short --no-decorate --pretty=format:"%d @ %h %cd" HEAD')
 # message()
 
-# source("R_folder/Lisdexamfetamine-load.R")
-source("R_folder/Lisdexamfetamine-clean.R")
+source("Lisdexamfetamine-load.R")
+source("Lisdexamfetamine-clean.R")
 ```
 
 
 
 ```{r characteristics}
 
+# XXXX note ITS analyses start from 2016-02-01, any reason for the discrepancy?
 # number of dispensings
 ADHD_char <- ADHD[supp_date %between% c(as.Date("2016-01-01"), as.Date("2022-01-31")) & age > 17, ]
 
-min(ADHD_char$supp_date)
-max(ADHD_char$supp_date)
-min(ADHD_char$age)
-
 num <- ADHD_char %>%
-  filter(supp_date <= "2022-01-31" & supp_date > "2016-01-01" & age > 17) %>%
   summarise(cnt = sum(scripts)) %>%
   mutate(cnt = formatC(cnt * 10, format = "d", big.mark = ","))
 
@@ -96,7 +92,6 @@ persons <- ADHD_char %>%
   ungroup()
 
 num <- persons %>%
-  filter(supp_date <= "2022-01-31" & supp_date > "2016-01-01" & age > 17) %>%
   summarise(cnt = n()) %>%
   mutate(cnt = formatC(cnt * 10, format = "d", big.mark = ","))
 cat("number of persons dispensed", pull(num), sep = " ")
@@ -121,8 +116,9 @@ Filters that were applied include:
 These data were stored locally
 
 ```{r pop_data}
-ABS_ERP <- readr::read_csv("data/ABS_ERP_22_23.01.30.csv", show_col_types = FALSE)
+ABS_ERP <- readr::read_csv("../data/ABS_ERP_22_23.01.30.csv", show_col_types = FALSE)
 
+# Convert ABS data into a cleaned-up tibble
 
 ERP <- ABS_ERP %>%
   select(`SEX: Sex`, `AGE: Age`, `TIME_PERIOD: Time Period`, OBS_VALUE) %>%
@@ -133,13 +129,7 @@ ERP <- ABS_ERP %>%
   mutate(date = zoo::as.yearqtr(date, format = "%Y-Q%q"), age_group = agegrp(age), year = year(date)) %>%
   arrange(sex, date, age)
 
-if (length(unique(ERP$age)) == 101) {
-  print("ERP data has all ages 0-100")
-}
-
-if (length(unique(ERP$age)) == 101 - 18) {
-  print("ERP data has all ages 18-100")
-}
+# Create half-year (Q2) population series by year, sex and age group
 
 ERP_prev <- ERP %>%
   filter(grepl("Q2", date)) %>%
@@ -151,7 +141,7 @@ ERP_prev <- ERP %>%
     sex == 3 ~ "persons"
   ))
 
-
+# Create quarterly population series by quarter and sex (all ages)
 
 ERP_time <- ERP %>%
   group_by(date, sex) %>%
@@ -162,7 +152,7 @@ ERP_time <- ERP %>%
     sex == 3 ~ "persons"
   ), date = zoo::as.Date(zoo::as.yearmon(date, format = "%Y-%m-%d")))
 
-
+# Create monthly population series by month and sex (all ages) by linear interpolation
 
 erp <- tsibble(ERP_time %>% mutate(sex = factor(sex)) %>%
   mutate(date = yearmonth(date)), key = sex, index = date) %>%
@@ -187,22 +177,18 @@ erpx <- erp %>%
       ))
     ))) %>%
     interpolate(erp))
-
-glimpse(erpx)
 ```
 
 
 
 ```{r annual_prevalence}
 
-# Prevalence for overall use by year;
+# First dispensing per person per year;
 ADHD_1 <- ADHD %>%
-  # filter(age > 17) %>%
-  group_by(pat_id, year) %>%
-  mutate(first = row_number() == 1) %>%
   filter(age > 17) %>%
-  filter(first == TRUE) %>%
-  select(pat_id, first, year, age, sex, supp_date, atc_code, medicine, age_group_2) %>%
+  group_by(pat_id, year) %>%
+  filter(row_number() == 1) %>%
+  select(pat_id, year, age, sex, supp_date, atc_code, medicine, age_group_2) %>%
   rename(age_group = age_group_2)
 
 # Prevalence for overall use by year;
@@ -214,6 +200,7 @@ ADHD_prev_sex <- ADHD_1 %>%
   group_by(year, sex) %>%
   summarise(n = n())
 
+# Create half-year (Q2) population series by year and sex (all ages)
 
 ERP_overall <- ERP_prev %>%
   group_by(year, sex) %>%
@@ -255,14 +242,11 @@ prevalence_age_sex$sex <- factor(prevalence_age_sex$sex, levels = c("persons", "
 
 # prevalent user based on medicine and year
 
-## to restrict to age>17 before selecting first record or not?
 ADHD_2 <- ADHD %>%
-  # filter(age > 17) %>%
-  group_by(pat_id, year, medicine) %>%
-  mutate(first = row_number() == 1) %>%
   filter(age > 17) %>%
-  filter(first == TRUE) %>%
-  select(pat_id, first, year, age_group_2, sex, supp_date, atc_code, medicine, class) %>%
+  group_by(pat_id, year, medicine) %>%
+  filter(row_number() == 1) %>%
+  select(pat_id, year, age_group_2, sex, supp_date, atc_code, medicine, class) %>%
   rename(age_group = age_group_2) %>%
   mutate(class = case_when(
     atc_code == "C02AC02" ~ "Nonstimulant",
@@ -364,16 +348,15 @@ prevalence_table %>%
 
 
 ```{r annual_incidence}
-
+# XXXX what about the first dispensing per pat_id?
 # incidence for overall use by year;
 ADHD_1 <- ADHD %>%
   group_by(pat_id) %>%
   arrange(pat_id, supp_date) %>%
-  mutate(first = row_number() == 1) %>%
-  filter(first == TRUE) %>%
+  filter(row_number() == 1) %>%
   filter(supp_date > as.Date(min(ADHD$supp_date) + months(17))) %>% # 18-month period look back
   filter(age > 17) %>%
-  select(pat_id, first, year, age, sex, supp_date, atc_code, medicine, class, age_group_2) %>%
+  select(pat_id, year, age, sex, supp_date, atc_code, medicine, class, age_group_2) %>%
   rename(age_group = age_group_2) %>%
   mutate(class = case_when(
     atc_code == "C02AC02" ~ "Nonstimulant",
@@ -395,10 +378,6 @@ ADHD_inc_sex <- ADHD_1 %>%
   summarise(n = n())
 
 
-ERP_overall <- ERP_prev %>%
-  group_by(year, sex) %>%
-  summarise(value = sum(value))
-
 incidence <- rbind(ADHD_inc_overall, ADHD_inc_sex) %>%
   left_join(ERP_overall, by = c("year", "sex")) %>%
   mutate(n = n * 10, prev = round((n / value) * 1000, digits = 1), n = paste0("(", formatC(n, format = "d", big.mark = ","), ")")) %>%
@@ -407,9 +386,6 @@ incidence <- rbind(ADHD_inc_overall, ADHD_inc_sex) %>%
   filter(year == 2021 & sex == "persons") %>%
   mutate(age_group = "Overall")
 
-
-# Estimated resident populations - by age and sex and year
-# estimated incidence by age group, sex and year
 
 ADHD_inc_age_sex <- ADHD_1 %>%
   group_by(age_group, sex, year) %>%
@@ -432,16 +408,16 @@ incidence_age_sex$sex <- factor(incidence_age_sex$sex, levels = c("persons", "Ma
 
 ###################################################################################################################################################
 
+# XXXX what about the first dispensing per pat_id?
 # estimated incidence by medicine and year
 ### create a new incidence based on incident medicine use:
 ADHD_2 <- ADHD %>%
   group_by(pat_id, medicine) %>%
   arrange(pat_id, supp_date) %>%
-  mutate(first = row_number() == 1) %>%
-  filter(first == TRUE) %>%
+  filter(row_number() == 1) %>%
   filter(supp_date > as.Date(min(ADHD$supp_date) + months(17))) %>% # 18-month period look back
   filter(age > 17) %>%
-  select(pat_id, first, year, age, sex, supp_date, atc_code, medicine, class, age_group_2) %>%
+  select(pat_id, year, age, sex, supp_date, atc_code, medicine, class, age_group_2) %>%
   rename(age_group = age_group_2) %>%
   mutate(class = case_when(
     atc_code == "C02AC02" ~ "Nonstimulant",
@@ -553,11 +529,9 @@ incidence_table %>%
 # kept in supp_date so can be flexible with tsibble
 # monthly aggregate dispensing by sex, age and medicine ()
 
-# update 08/02/23
 all <- ADHD %>%
   filter(age_group == "Over 18") %>%
   mutate(medicine = class) %>%
-  # rename(date = mos) %>%
   group_by(medicine, mos) %>%
   summarise(cnt = sum(scripts)) %>%
   mutate(sex = "persons", date = yearmonth(mos))
@@ -573,17 +547,14 @@ all_sex <- ADHD %>%
 
 all <- rbind(all, all_sex)
 
-### do analysis on data from 2016 to end of 2021
-#**** IS More post intervention data necessary can have data up until July 2022 - Possibly September.
-# Update 8/12 - run with data until July 2022
-
 a <- all %>% filter(date >= yearmonth("2016-02-01") &
   date < yearmonth("2022-02-01"))
 # update to only include data from 12 months after intervention
 
 ts <- tsibble(a, key = c(sex, medicine), index = date) %>% fill_gaps()
 
-### Pre-intervention not mapped - unused
+### Pre-intervention
+# XXXX preintervention period extends to "date < yearmonth("2021-02-01")"
 
 a2 <- all %>% filter(date >= yearmonth("2016-02-01") & date < yearmonth("2021-01-01"))
 
@@ -616,8 +587,7 @@ ts <- tss %>%
 
 ### Remove data point for APRIL 2020, dispensing outlier due to covid 19 lockdowns.
 
-ts %<>% mutate(flag = ifelse(date == yearmonth("2020-04-01"), 1, 0)) %>%
-  filter(flag == 0) %>%
+ts %<>% filter(date != yearmonth("2020-04-01")) %>%
   fill_gaps()
 
 nest_ts <- ts %>%
@@ -635,12 +605,12 @@ nest_ts <- ts %>%
 Exploring first whether data should be transformed and which differences are needed (are the data autocorrelated and seasonal)
 
 ```{r STL}
-## plot SLT trend prior to intervention
+## plot STL trend prior to intervention
 
-plot_slt <- ts2 %>% model(STL = STL(log(rate)))
+plot_stl <- ts2 %>% model(STL = STL(log(rate)))
 
 
-plot_all <- plot_slt %>% mutate(
+plot_all <- plot_stl %>% mutate(
   plot = pmap(list(STL, medicine, sex), ~ ..1 %>%
     components() %>%
     autoplot() + labs(title = paste0("Log rate STL plots for", ..2, ..3, sep = " ")))
@@ -650,7 +620,6 @@ plot_all <- plot_slt %>% mutate(
 pdf(file = paste0(Sys.Date(), "_check plot STL.pdf"))
 
 for (i in 1:12) {
-  # plot.new()
   print(plot_all$plot[[i]])
 }
 dev.off()
@@ -714,25 +683,13 @@ c. Estimate model and use information criteria to find the best model (AICc wont
 
 ```{r model_data}
 
-## create models: decision was made to only use seasonal arima models based on residual checks and for all series. Note cannot compare information criteras when models have different differencing.
-
-
 model_ts <- ts %>%
   model(
     seasonal_arma_log = ARIMA(log(rate) ~ pdq(d = 0) + PDQ(D = 1) + step + ramp + trend(), stepwise = FALSE),
-    # arma_log = ARIMA(log(rate)~pdq(d=0)+PDQ()+step+ramp+trend(), stepwise=FALSE),
-    # arima_diff_log = ARIMA(log(rate)~pdq(d=1)+PDQ()+step+ramp, stepwise=FALSE),
-    # arma = ARIMA(rate~pdq(d=0)+PDQ()+step+ramp+trend(), stepwise=FALSE),
-    # arima_diff = ARIMA(rate~pdq(d=1)+PDQ()+step+ramp, stepwise=FALSE),
-
-    # auto_trend_log= ARIMA(log(rate)~ramp+step+trend()),
-    # auto_log = ARIMA(log(rate)~ramp+step)
   )
 
 ################################################################################################################
-saveRDS(model_ts, paste0("data/model_ts_", Sys.Date(), ".Rds"))
-
-#model_ts<-readRDS(paste0("data/model_ts_", Sys.Date(), ".Rds"))
+saveRDS(model_ts, paste0("../data/model_ts_", Sys.Date(), ".Rds"))
 
 
 ## seasonal lag formula - based on https://robjhyndman.com/hyndsight/ljung-box-test/
@@ -838,11 +795,6 @@ ft
 
 ```{r seasonal_model_plot, echo = TRUE}
 
-### remove comments with ## if want to loop and test multiple models, and replace . Some reason graphics card on this version of R is making the fonts play up and cause error
-
-# comment this out if want multiple models - note that plotting models depends on model specified.
-model <- "seasonal_arma_log"
-
  models <- c("seasonal_arma_log")
 
 for (model in models) {
@@ -870,7 +822,6 @@ tidy_estimates <- p %>%
   ) %>%
   filter(
     term == "step" | term == "ramp" | term == "trend()"
-    # | term =="intercept"
   ) %>%
   mutate(
     term = ifelse(term == "trend()", "trend", term)
@@ -941,7 +892,7 @@ df <- merge(df, mean_data, by = c("medicine", "sex")) %>%
   ) %>%
   mutate(
     fit_un = rowSums(select(., .dots = all_of(c("step_value", "ramp_value", "trend_value", "ss"))), na.rm = TRUE),
-    # exponeniating if needed i.e., model is log (all models?)
+    # exponentiating if needed i.e., model is log (all models?)
     fit = ifelse(grepl("log", .model) == TRUE, exp(fit_un), fit_un),
     class = factor(ifelse(medicine != "Lisdexamfetamine", "Other", "Lisdexamfetamine"))
   ) %>%
@@ -997,13 +948,10 @@ ggsave(
   limitsize = FALSE,
 )
 
-#pdf(file = paste0(Sys.Date(), "_Figure 1. predicted and observed for", model, "model by medicine and sex.pdf"))
 
 plot.new()
 print(plot)
 
- #plot(ft, method = "grob")
- #dev.off()
  }
 
 ft
