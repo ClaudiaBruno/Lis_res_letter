@@ -1,26 +1,24 @@
 ---
-title: Changes in lisdexamfetamine after PBS subsidy restriction change, A Research Letter
+title: Expanded access to publicly subsidised lisdexamfetamine treatment for adults with attention-deficit/hyperactivity disorder: an interrupted time series analysis
 output: word_document
 ---
 
-We will be examining time series between **01 Jan 2016 and 31 Jan 2022**. Our intervention date (change date) is **1 February 2021** when the subsidy listing for lisdexamfetamine was expanded to allow people who were diagnosed with ADHD in adulthood subsidised access, prior to this adults who were diagnosed in adulthood were not eligible for subsidised Lisdexamfetamine. 
+We will be examining time series between **01 Feb 2016 and 31 Jan 2022**. Our intervention date (change date) is **1 February 2021** when the subsidy listing for lisdexamfetamine was expanded to allow people who were diagnosed with ADHD in adulthood subsidised access, prior to this adults who were diagnosed in adulthood were not eligible to access subsidised Lisdexamfetamine but may have accessed the medicine via the private market at a higher cost. 
 
-This file uses PBS 10% sample data, the Australian Government Services Australia External Request Evaluation Committee granted data access (Approval Numbers: MI7542/RMS1941).Direct access to the data and analytical files to other individuals or authorities is not permitted without the express permission of the approving human research ethics committees and data custodians.  The New South Wales (NSW) Population and Health Services Research Ethics Committee approved this study (Approval Number: 2013/11/494). 
+This file uses PBS 10% sample data, the Australian Government Services Australia External Request Evaluation Committee granted data access (Approval Numbers: MI7542/RMS1941).Direct access to the data and analytical files to other individuals or authorities is not permitted without the express permission of the approving human research ethics committees and data custodians. The New South Wales (NSW) Population and Health Services Research Ethics Committee approved this study (Approval Number: 2013/11/494). 
 
-Previous code, has cleaned the data and extracted all dispensing records for approved and subsidised ADHD medicines in Australia for people >18 years. We excluded dexamfetamine dispensing records which indicated use was for Narcolepsy. 
-    atc_code == 'C02AC02', 'Guanfacine',
-    atc_code == 'N06BA02', 'Dexamfetamine',
-    atc_code == 'N06BA04', 'Methylphenidate',
-    atc_code == 'N06BA09', 'Atomoxetine',
-    atc_code == 'N06BA12', 'Lisdexamfetamine'
+Previous code, has cleaned the data and extracted all dispensing records for approved and subsidised ADHD medicines in Australia between 2016 and 2021 for people >18 years. We excluded dexamfetamine dispensing records which indicated use was for Narcolepsy. 
+We included the following medicines: Guanfacine (atc_code: C02AC02), Dexamfetamine (N06BA02), Methylphenidate (N06BA04), Atomoxetine (N06BA09), Lisdexamfetamine (N06BA12). 
     
 It also uses publicly available data from Australian Bureau of Statistics, data builder (see comments)
 
 This file has two parts. 
-First, create tables for the incidence (18 month lookback period) and prevalence of ADHD medicine use among adults in Australia for 2021. Estimates were presented *per 1000 adults*. 
+First, create tables for the incidence (at least 18 month lookback period) and prevalence of ADHD medicine use among adults in Australia for 2021. Estimates were presented *per 1000 adults*. 
 
 Second, to conduct an interrupted time series analysis quantifying changes in monthly dispensing following the lisdexamfetamine listing change on 1 February 2021. 
 This part creates multiple pdfs to examine monthly dispensing rates as well as exploring ARIMA models, statistics and residuals. Finally, it produces a pdf with the final figure (monthly predicted and observed dispensing rates) and the effect estimates (with 95% confidence intervals) for the change in step, ramp, and trend effects. 
+
+*this will cause blank pages in a word knit.
 
 ```{r load_libs_trends, eval=TRUE, include=FALSE}
 # load libraries
@@ -31,7 +29,6 @@ library(tsibble)
 library(feasts)
 library(magrittr)
 library(ggplot2)
-
 library(dplyr)
 library(lubridate)
 library(sessioninfo)
@@ -40,44 +37,29 @@ library(data.table)
 library(purrr)
 library(flextable)
 library(tidyr)
-
 library(knitr)
 library(gridExtra)
-
 library(readr)
-library(beepr)
-
 library(ftExtra)
-
-# detach("package:forecast", unload = TRUE)
 ```
 
 ```{r read_data}
-# run load, clean, libraries needed ext
 session_info()
+
 options(scipen = 999)
-options(error = function() {
-  beep()
-})
+#supress warnings caused by group_by and summarise in dpylr;
+options(dplyr.summarise.inform = FALSE)
 
-# Create output
-time_start <- Sys.time()
-
-# log current git commit
-# system('git --no-pager log -1 --date=short --no-decorate --pretty=format:"%d @ %h %cd" HEAD')
-# message()
-
+#These two files load PBS data and extract ADHD medicine dispensings to dataframe called ADHD;
 source("Lisdexamfetamine-load.R")
 source("Lisdexamfetamine-clean.R")
 ```
 
-
+Report basic characteristics, number of adults and dispensings (extrapolated to population from 10% sample)
 
 ```{r characteristics}
-
-# XXXX note ITS analyses start from 2016-02-01, any reason for the discrepancy?
 # number of dispensings
-ADHD_char <- ADHD[supp_date %between% c(as.Date("2016-01-01"), as.Date("2022-01-31")) & age > 17, ]
+ADHD_char <- ADHD[supp_date %between% c(as.Date("2016-02-01"), as.Date("2022-01-31")) & age > 17, ]
 
 num <- ADHD_char %>%
   summarise(cnt = sum(scripts)) %>%
@@ -179,7 +161,7 @@ erpx <- erp %>%
     interpolate(erp))
 ```
 
-
+## Part 1: Prevalence and incidence of ADHD medicines
 
 ```{r annual_prevalence}
 
@@ -196,6 +178,7 @@ ADHD_prev_overall <- ADHD_1 %>%
   group_by(year) %>%
   summarise(n = n()) %>%
   mutate(sex = "persons")
+# Prevalence for use by year and sex;
 ADHD_prev_sex <- ADHD_1 %>%
   group_by(year, sex) %>%
   summarise(n = n())
@@ -329,7 +312,6 @@ prevalence_table$age_group <- factor(prevalence_table$age_group, levels = c("Ove
 prevalence_table$sex <- factor(prevalence_table$sex, levels = c("persons", "Male", "Female", "Male to female sex ratio", "Stimulant", "Dexamfetamine", "Lisdexamfetamine", "Methylphenidate", "Nonstimulant", "Atomoxetine", "Guanfacine", "Population"))
 
 
-
 prevalence_table %>%
   arrange(age_group, sex) %>%
   group_by(age_group) %>%
@@ -342,6 +324,7 @@ prevalence_table %>%
   set_header_labels(sex = "", rate = "Prevalence (n)") %>%
   add_footer_lines("ADHD, attention-deficit/hyperactivity disorder") %>%
   autofit()
+  
 ```
 
 
@@ -349,12 +332,12 @@ prevalence_table %>%
 
 ```{r annual_incidence}
 # XXXX what about the first dispensing per pat_id?
-# incidence for overall use by year;
+#incident dispensings;
 ADHD_1 <- ADHD %>%
   group_by(pat_id) %>%
   arrange(pat_id, supp_date) %>%
   filter(row_number() == 1) %>%
-  filter(supp_date > as.Date(min(ADHD$supp_date) + months(17))) %>% # 18-month period look back
+  filter(supp_date > as.Date(min(ADHD$supp_date) + months(17))) %>% # at least 18-month period look back
   filter(age > 17) %>%
   select(pat_id, year, age, sex, supp_date, atc_code, medicine, class, age_group_2) %>%
   rename(age_group = age_group_2) %>%
@@ -373,6 +356,8 @@ ADHD_inc_overall <- ADHD_1 %>%
   group_by(year) %>%
   summarise(n = n()) %>%
   mutate(sex = "persons")
+
+# incidence for use by year and sex;
 ADHD_inc_sex <- ADHD_1 %>%
   group_by(year, sex) %>%
   summarise(n = n())
@@ -511,11 +496,13 @@ incidence_table %>%
   bold(bold = TRUE, part = "header") %>%
   set_header_labels(sex = "", rate_inc = "Incidence (n)", rate = "Prevalence (n)") %>%
   add_footer_lines("ADHD, attention-deficit/hyperactivity disorder") %>%
-  autofit()
+  autofit() %>% 
+  add_header_lines(Table 1. Incidence and prevalence of ADHD medicine use per 1000 adults in Australia in 2021, by age, sex and ADHD medicine")
+  
+  
 ```
-
-
-
+## Part 2: Interuppted time series analysis of ADHD medicines from February 2016 to January 2022.
+Setting up Tsibbles for time series analysis.
     
 ```{r set_disp_ts}
 
@@ -526,7 +513,6 @@ incidence_table %>%
 # Each observational unit should be measured at a common interval, if regularly spaced
 
 # Convert data to time series object - dispensings by supply date: for each age group and medicine
-# kept in supp_date so can be flexible with tsibble
 # monthly aggregate dispensing by sex, age and medicine ()
 
 all <- ADHD %>%
@@ -549,19 +535,8 @@ all <- rbind(all, all_sex)
 
 a <- all %>% filter(date >= yearmonth("2016-02-01") &
   date < yearmonth("2022-02-01"))
-# update to only include data from 12 months after intervention
 
 ts <- tsibble(a, key = c(sex, medicine), index = date) %>% fill_gaps()
-
-### Pre-intervention
-# XXXX preintervention period extends to "date < yearmonth("2021-02-01")"
-
-a2 <- all %>% filter(date >= yearmonth("2016-02-01") & date < yearmonth("2021-01-01"))
-
-ts2 <- tsibble(a2, key = c(sex, medicine), index = date) %>%
-  fill_gaps() %>%
-  inner_join(erpx) %>%
-  mutate(rate = (cnt * 10000) / value, cnt = as.numeric(cnt * 10))
 
 # define change date
 change_date <- "2021-02-01"
@@ -585,7 +560,7 @@ ts <- tss %>%
   inner_join(erpx) %>%
   mutate(rate = (cnt * 10000) / value, cnt = as.numeric(cnt * 10))
 
-### Remove data point for APRIL 2020, dispensing outlier due to covid 19 lockdowns.
+# Remove data point for APRIL 2020, dispensing outlier due to covid 19 lockdowns;
 
 ts %<>% filter(date != yearmonth("2020-04-01")) %>%
   fill_gaps()
@@ -604,10 +579,11 @@ nest_ts <- ts %>%
 
 Exploring first whether data should be transformed and which differences are needed (are the data autocorrelated and seasonal)
 
-```{r STL}
+```{r STL, eval = TRUE, include = FALSE}
 ## plot STL trend prior to intervention
 
-plot_stl <- ts2 %>% model(STL = STL(log(rate)))
+plot_stl <- ts %>% filter(date < yearmonth(change_date)) %>%
+  fill_gaps() %>% model(STL = STL(log(rate)))
 
 
 plot_all <- plot_stl %>% mutate(
@@ -623,19 +599,20 @@ for (i in 1:12) {
   print(plot_all$plot[[i]])
 }
 dev.off()
+
 ```
 
 
-```{r plot_raw_season, results= 'asis', fig.height=14, fig.width=30}
+```{r plot_raw_season, results= 'asis', fig.height=14, fig.width=30, eval = TRUE, include = FALSE}
 
+#create function for plotting seasonal data and autocorrelation;
 plot_fun <- function(nest_data, y) {
   nest_data %>%
     mutate(plot = pmap(list(data, medicine, sex), ~ gg_tsdisplay(..1, y = .data[[y]], plot_type = "season") +
       labs(title = paste0(y, "plots for", ..2, ..3, sep = " "))))
 }
 
-
-
+#create function for testing autocorrelation;
 
 uniroot_fun <- function(nest_data, y) {
   nest_data %>%
@@ -673,13 +650,10 @@ for (vars in plot_vars) {
   plot(ft, method = "grob")
   dev.off()
 }
+
 ```
 
-Step 3. Model selection: While automated algorithms in several statistical packages can identify candidate p and q parameters, they can sometimes be estimated based on the ACF/PACF plots.
-a. Determine differencing order to induce stationary: If there is seasonality, a seasonal difference is required and D =1. (Going with arma model instead)
-b. Plot the ACF/PACF of stationarity data to determine potential AR/MA orders (gg_tsresidual)
-c. Estimate model and use information criteria to find the best model (AICc wont help with models based on differencing)
-
+Model selection: Creating arma models and checking residuals
 
 ```{r model_data}
 
@@ -688,19 +662,17 @@ model_ts <- ts %>%
     seasonal_arma_log = ARIMA(log(rate) ~ pdq(d = 0) + PDQ(D = 1) + step + ramp + trend(), stepwise = FALSE),
   )
 
-################################################################################################################
-saveRDS(model_ts, paste0("../data/model_ts_", Sys.Date(), ".Rds"))
-
-
-## seasonal lag formula - based on https://robjhyndman.com/hyndsight/ljung-box-test/
+# seasonal lag formula - based on https://robjhyndman.com/hyndsight/ljung-box-test/
 
 # For non-seasonal time series, use h=\min(10, T/5)h=min(10,T/5).
 # For seasonal time series, use h=\min(2m, T/5)h=min(2m,T/5).
 ## number of dates -1 as excluded data from APR 2020
-# non_seasonal = min(10, (nrow(nest_ts$data[[1]])-1)/5)
+
+
 seasonal_lag <- min(12 * 2, (nrow(nest_ts$data[[1]])) / 5)
 seasonal_lag2 <- min(12 * 2, (nrow(nest_ts$data[[1]]) - 12) / 5)
 
+#check model AICcs;
 
 model_ts %>%
   glance() %>%
@@ -711,8 +683,8 @@ model_ts %>%
   bold(j = 7)
 
 
-
 # we expect the residuals to fail this test when we have sufficient data
+
 map_data <- nest_ts %>%
   select(medicine, sex) %>%
   as.data.frame()
@@ -749,11 +721,10 @@ filter_fun <- function(mable_data, model_var) {
     # ,components = map(model, ~ .x %>% components() %>%  autoplot() )
   )
 }
+
 ```
 
-
-
-```{r residual_plots}
+```{r residual_plots, eval = TRUE, include = FALSE}
 #######################################################################################
 ## PLOT AND PRINT INFO ABOUT ARMA MODELS INTO PDF
 ## DEFINE FUNCTIONS TO EXTRACT RESIDUAL PLOTS AND PRINT TABLE FOR TEST BY MEDICINE AND SEX
@@ -761,7 +732,6 @@ filter_fun <- function(mable_data, model_var) {
 
 # plot residuals for  models
 # gg_tsresidual may only work on one single mable.
-
 
 models <- c("seasonal_arma_log")
 
@@ -789,18 +759,20 @@ for (model in models) {
   plot(ft, method = "grob")
   dev.off()
 }
+```
+```{ r print_residual_check_table}
+#print table in word knit;
 ft
 ```
 
+Plotting figure 1 and estimates of change with 95% confidence intervals
 
-```{r seasonal_model_plot, echo = TRUE}
+```{r seasonal_model_plot, echo = TRUE, eval = TRUE, include = FALSE}
 
  models <- c("seasonal_arma_log")
 
 for (model in models) {
 
-
-# plot function
 p <- filter_fun(model_ts, model)
 
 # create flextable object for residual test table
@@ -871,7 +843,8 @@ mean_data <- nest_ts %>%
       mutate(time = date - yearmonth(min(date)))),
 
 
-    # baseline for seasonal differences
+ # baseline for seasonal differences;
+ 
     data_mean = map_dbl(data, ~ .x %>%
       filter(time %in% c(0:11)) %>%
       mutate(mean = mean(log(rate))) %>%
@@ -917,27 +890,17 @@ plot <- df %>%
   guides(colour = guide_legend(title = NULL)) +
   theme_bw() +
   theme(
-    # text = element_text(family = "sans", size = 12),
-    #axis.title.x = element_text(size = 12),
-    #axis.title.y = element_text(size = 12),
-    # axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
     panel.grid.major.y = element_line(colour = "grey90"),
     panel.grid.major.x = element_line(colour = "grey90"),
     panel.grid.minor.y = element_blank(),
     panel.grid.minor.x = element_blank(),
-   # plot.title = element_text(
-    #  size = 12, colour = "black",
-    #  face = "plain", margin = unit(c(1, 1, 1, 1), "pt"),
-    #  lineheight = 1, angle = NULL
-   # ),
     legend.position = "bottom",
-    panel.border = element_rect(colour = "darkgrey", fill = NA)
-    # ,line = element_blank()
-    , axis.line = element_line(color = "black")
+    panel.border = element_rect(colour = "darkgrey", fill = NA), 
+    axis.line = element_line(color = "black")
   )
 
 ggsave(
-  filename = paste0(Sys.Date(), "_Figure 1. predicted and observed for", model, "model by medicine and sex.tiff"),
+  filename = paste0(Sys.Date(), "Figure 1. Monthly rate of ADHD medicine dispensings per 1000 Australian adults, observed (dotted) and predicted (solid line) trends from 1 February 2016 to 31 January 2022. A", model, "by medicine and sex.tiff"),
   plot = plot,
   device = NULL,
   scale = 1,
@@ -953,13 +916,17 @@ plot.new()
 print(plot)
 
  }
-
-ft
 ```
 
+```{r print_table_estimates}
+ft
+```
+Reporting mean rate of dispensing in 12 months prior to and following the intervention. 
 
 ```{r mean_before_after}
+
 #based on data including April 2020 (removed from time series)
+
 mean_data <- tss %>%
   inner_join(erpx) %>%
   mutate(rate = (cnt * 10000) / value, cnt = as.numeric(cnt * 10)) %>%
@@ -986,14 +953,35 @@ mean_data <- tss %>%
       pull())
   )
 
-
-
 mean_data %>%
   select(-data) %>%
-  flextable()
+  flextable() %>%
+  add_header_lines("Mean monthly dispensings in year prior to and following intervention")
+
 ```
 
+## References 
 
-```{r end}
-beep()
-```
+Key packages used are referenced here: 
+Tidyverts: tsibble, fable, feasts
+Wang, E, D Cook, and RJ Hyndman (2020). A new tidy data structure to support exploration and modeling of temporal data, Journal of Computational and Graphical Statistics, 29:3, 466-478, doi:10.1080/10618600.2019.1695624
+
+O'Hara-Wild M, Hyndman R, Wang E (2022). _fable: Forecasting Models for Tidy Time Series_. R
+  package version 0.3.2, <https://CRAN.R-project.org/package=fable>
+  
+O'Hara-Wild M, Hyndman R, Wang E (2022). _feasts: Feature Extraction and Statistics for Time
+  Series_. R package version 0.3.0, <https://CRAN.R-project.org/package=feasts>
+  
+ggplot2:
+Wickham H (2016). ggplot2: Elegant Graphics for Data Analysis. Springer-Verlag New York. ISBN 978-3-319-24277-4, https://ggplot2.tidyverse.org.
+
+flextable:
+Gohel D, Skintzos P (2023). flextable: Functions for Tabular Reporting. https://ardata-fr.github.io/flextable-book/, https://davidgohel.github.io/flextable/.
+
+dplyr:
+Wickham H, François R, Henry L, Müller K (2022). _dplyr: A Grammar of Data Manipulation_. R
+  package version 1.0.10, <https://CRAN.R-project.org/package=dplyr>.
+  
+purrr:
+ Wickham H, Henry L (2023). _purrr: Functional Programming Tools_. R package version 1.0.1,
+  <https://CRAN.R-project.org/package=purrr>.
