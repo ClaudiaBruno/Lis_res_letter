@@ -1,5 +1,5 @@
 ---
-title: Expanded access to publicly subsidised lisdexamfetamine treatment for adults with attention-deficit/hyperactivity disorder: an interrupted time series analysis
+title: Expanded access to publicly subsidised lisdexamfetamine treatment for adults with attention-deficit/hyperactivity disorder, an interrupted time series analysis
 output: word_document
 ---
 
@@ -331,13 +331,14 @@ prevalence_table %>%
 
 
 ```{r annual_incidence}
-# XXXX what about the first dispensing per pat_id?
+min_date <- as.Date("01-01-2015")
+
 #incident dispensings;
 ADHD_1 <- ADHD %>%
   group_by(pat_id) %>%
   arrange(pat_id, supp_date) %>%
   filter(row_number() == 1) %>%
-  filter(supp_date > as.Date(min(ADHD$supp_date) + months(17))) %>% # at least 18-month period look back
+  filter(supp_date > as.Date(min_date + months(17))) %>% # at least 18-month period look back
   filter(age > 17) %>%
   select(pat_id, year, age, sex, supp_date, atc_code, medicine, class, age_group_2) %>%
   rename(age_group = age_group_2) %>%
@@ -393,14 +394,13 @@ incidence_age_sex$sex <- factor(incidence_age_sex$sex, levels = c("persons", "Ma
 
 ###################################################################################################################################################
 
-# XXXX what about the first dispensing per pat_id?
 # estimated incidence by medicine and year
 ### create a new incidence based on incident medicine use:
 ADHD_2 <- ADHD %>%
   group_by(pat_id, medicine) %>%
   arrange(pat_id, supp_date) %>%
   filter(row_number() == 1) %>%
-  filter(supp_date > as.Date(min(ADHD$supp_date) + months(17))) %>% # 18-month period look back
+  filter(supp_date > as.Date(min_date + months(17))) %>% # 18-month period look back
   filter(age > 17) %>%
   select(pat_id, year, age, sex, supp_date, atc_code, medicine, class, age_group_2) %>%
   rename(age_group = age_group_2) %>%
@@ -497,7 +497,7 @@ incidence_table %>%
   set_header_labels(sex = "", rate_inc = "Incidence (n)", rate = "Prevalence (n)") %>%
   add_footer_lines("ADHD, attention-deficit/hyperactivity disorder") %>%
   autofit() %>% 
-  add_header_lines(Table 1. Incidence and prevalence of ADHD medicine use per 1000 adults in Australia in 2021, by age, sex and ADHD medicine")
+  add_header_lines("Table 1. Incidence and prevalence of ADHD medicine use per 1000 adults in Australia in 2021, by age, sex and ADHD medicine")
   
   
 ```
@@ -541,6 +541,14 @@ ts <- tsibble(a, key = c(sex, medicine), index = date) %>% fill_gaps()
 # define change date
 change_date <- "2021-02-01"
 
+#pre-intervention data - to map pre-intervention trend
+a2 <- all %>% filter(date >= yearmonth("2016-02-01") & date <= as.Date(change_date))
+
+ts2 <- tsibble(a2, key = c(sex, medicine), index = date) %>%
+  fill_gaps() %>%
+  inner_join(erpx) %>%
+  mutate(rate = (cnt * 10000) / value, cnt = as.numeric(cnt * 10))
+
 ramp <- ts %>%
   ungroup() %>%
   filter(medicine == "Dexamfetamine" & sex == "Female") %>%
@@ -582,8 +590,7 @@ Exploring first whether data should be transformed and which differences are nee
 ```{r STL, eval = TRUE, include = FALSE}
 ## plot STL trend prior to intervention
 
-plot_stl <- ts %>% filter(date < yearmonth(change_date)) %>%
-  fill_gaps() %>% model(STL = STL(log(rate)))
+plot_stl <- ts2 %>% model(STL = STL(log(rate)))
 
 
 plot_all <- plot_stl %>% mutate(
@@ -637,7 +644,7 @@ for (vars in plot_vars) {
 
 
   # create pdf files
-  pdf(file = paste0(Sys.Date(), "_Raw plots (with season) for", vars, " by medicine and sex.pdf"))
+  pdf(file = paste0(Sys.Date(), "_Raw plots (with season) for", vars, "by medicine and sex.pdf"))
 
 
   for (i in 1:12) {
