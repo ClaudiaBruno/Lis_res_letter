@@ -28,3 +28,8 @@ vignettes/*.pdf
 .Renviron
 #Rds files
 .Rds
+
+#pdf and docx files
+.pdf
+.docx
+
