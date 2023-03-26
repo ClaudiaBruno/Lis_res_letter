@@ -501,7 +501,7 @@ incidence_table %>%
   
   
 ```
-## Part 2: Interuppted time series analysis of ADHD medicines from February 2016 to January 2022.
+## Part 2: Interrupted time series analysis of ADHD medicines from February 2016 to January 2022.
 Setting up Tsibbles for time series analysis.
     
 ```{r set_disp_ts}
@@ -774,7 +774,7 @@ ft
 
 Plotting figure 1 and estimates of change with 95% confidence intervals
 
-```{r seasonal_model_plot, echo = TRUE, eval = TRUE, include = FALSE}
+```{r seasonal_model_plot, eval = TRUE, include = FALSE}
 
  models <- c("seasonal_arma_log")
 
@@ -907,7 +907,7 @@ plot <- df %>%
   )
 
 ggsave(
-  filename = paste0(Sys.Date(), "Figure 1. Monthly rate of ADHD medicine dispensings per 1000 Australian adults, observed (dotted) and predicted (solid line) trends from 1 February 2016 to 31 January 2022. A", model, "by medicine and sex.tiff"),
+  filename = paste(Sys.Date(), "Figure 1. A", model, "by medicine and sex.tiff"),
   plot = plot,
   device = NULL,
   scale = 1,
