@@ -32,4 +32,5 @@ vignettes/*.pdf
 #pdf and docx files
 .pdf
 .docx
+.tiff
 
