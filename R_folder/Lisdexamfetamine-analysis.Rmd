@@ -1,24 +1,54 @@
 ---
 title: Expanded access to publicly subsidised lisdexamfetamine treatment for adults with attention-deficit/hyperactivity disorder, an interrupted time series analysis
 output: word_document
+editor_options: 
+  markdown: 
+    wrap: 72
 ---
 
-We will be examining time series between **01 Feb 2016 and 31 Jan 2022**. Our intervention date (change date) is **1 February 2021** when the subsidy listing for lisdexamfetamine was expanded to allow people who were diagnosed with ADHD in adulthood subsidised access, prior to this adults who were diagnosed in adulthood were not eligible to access subsidised Lisdexamfetamine but may have accessed the medicine via the private market at a higher cost. 
+We will be examining time series between **01 Feb 2016 and 31 Jan
+2022**. Our intervention date (change date) is **1 February 2021** when
+the subsidy listing for lisdexamfetamine was expanded to allow people
+who were diagnosed with ADHD in adulthood subsidised access, prior to
+this adults who were diagnosed in adulthood were not eligible to access
+subsidised Lisdexamfetamine but may have accessed the medicine via the
+private market at a higher cost.
 
-This file uses PBS 10% sample data, the Australian Government Services Australia External Request Evaluation Committee granted data access (Approval Numbers: MI7542/RMS1941).Direct access to the data and analytical files to other individuals or authorities is not permitted without the express permission of the approving human research ethics committees and data custodians. The New South Wales (NSW) Population and Health Services Research Ethics Committee approved this study (Approval Number: 2013/11/494). 
+This file uses PBS 10% sample data, the Australian Government Services
+Australia External Request Evaluation Committee granted data access
+(Approval Numbers: MI7542/RMS1941).Direct access to the data and
+analytical files to other individuals or authorities is not permitted
+without the express permission of the approving human research ethics
+committees and data custodians. The New South Wales (NSW) Population and
+Health Services Research Ethics Committee approved this study (Approval
+Number: 2013/11/494).
 
-Previous code, has cleaned the data and extracted all dispensing records for approved and subsidised ADHD medicines in Australia between 2016 and 2021 for people >18 years. We excluded dexamfetamine dispensing records which indicated use was for Narcolepsy. 
-We included the following medicines: Guanfacine (atc_code: C02AC02), Dexamfetamine (N06BA02), Methylphenidate (N06BA04), Atomoxetine (N06BA09), Lisdexamfetamine (N06BA12). 
-    
-It also uses publicly available data from Australian Bureau of Statistics, data builder (see comments)
+Previous code, has cleaned the data and extracted all dispensing records
+for approved and subsidised ADHD medicines in Australia between 2016 and
+2021 for people \>18 years. We excluded dexamfetamine dispensing records
+which indicated use was for Narcolepsy. We included the following
+medicines: Guanfacine (atc_code: C02AC02), Dexamfetamine (N06BA02),
+Methylphenidate (N06BA04), Atomoxetine (N06BA09), Lisdexamfetamine
+(N06BA12).
 
-This file has two parts. 
-First, create tables for the incidence (at least 18 month lookback period) and prevalence of ADHD medicine use among adults in Australia for 2021. Estimates were presented *per 1000 adults*. 
+It also uses publicly available data from Australian Bureau of
+Statistics, data builder (see comments)
 
-Second, to conduct an interrupted time series analysis quantifying changes in monthly dispensing following the lisdexamfetamine listing change on 1 February 2021. 
-This part creates multiple pdfs to examine monthly dispensing rates as well as exploring ARIMA models, statistics and residuals. Finally, it produces a pdf with the final figure (monthly predicted and observed dispensing rates) and the effect estimates (with 95% confidence intervals) for the change in step, ramp, and trend effects. 
+This file has two parts. First, create tables for the incidence (at
+least 18 month lookback period) and prevalence of ADHD medicine use
+among adults in Australia for 2021. Estimates were presented *per 1000
+adults*.
 
-*this will cause blank pages in a word knit.
+Second, to conduct an interrupted time series analysis quantifying
+changes in monthly dispensing following the lisdexamfetamine listing
+change on 1 February 2021. This part creates multiple pdfs to examine
+monthly dispensing rates as well as exploring ARIMA models, statistics
+and residuals. Finally, it produces a pdf with the final figure (monthly
+predicted and observed dispensing rates) and the effect estimates (with
+95% confidence intervals) for the change in step, ramp, and trend
+effects.
+
+\newpage
 
 ```{r load_libs_trends, eval=TRUE, include=FALSE}
 # load libraries
@@ -51,11 +81,14 @@ options(scipen = 999)
 options(dplyr.summarise.inform = FALSE)
 
 #These two files load PBS data and extract ADHD medicine dispensings to dataframe called ADHD;
-#source("Lisdexamfetamine-load.R")
+source("Lisdexamfetamine-load.R")
 source("Lisdexamfetamine-clean.R")
 ```
 
-Report basic characteristics, number of adults and dispensings (extrapolated to population from 10% sample)
+\newpage
+
+Report basic characteristics, number of adults and dispensings
+(extrapolated to population from 10% sample)
 
 ```{r characteristics}
 # number of dispensings
@@ -76,7 +109,10 @@ persons <- ADHD_char %>%
 num <- persons %>%
   summarise(cnt = n()) %>%
   mutate(cnt = formatC(cnt * 10, format = "d", big.mark = ","))
-cat("number of persons dispensed", pull(num), sep = " ")
+
+
+cat("
+    number of persons dispensed", pull(num), sep = " ")
 
 persons %>%
   group_by(sex) %>%
@@ -85,17 +121,25 @@ persons %>%
   set_caption("number of males and females")
 ```
 
-ABS data were extracted on 30.01.22 from
-<https://explore.data.abs.gov.au/vis?tm=quarterly%20population&pg=0&df[ds]=ABS_ABS_TOPICS&df[id]=ERP_Q&df[ag]=ABS&df[vs]=1.0.0&hc[Frequency]=Quarterly&pd=2015-Q1%2C2022-Q2&dq=1.2%2B1%2B3.85%2B86%2B87%2B88%2B89%2B90%2B91%2B92%2B100%2B99%2B98%2B97%2B96%2B95%2B94%2B93%2B84%2B83%2B82%2B81%2B80%2B79%2B78%2B77%2B76%2B75%2B74%2B73%2B72%2B71%2B70%2B69%2B68%2B67%2B66%2B65%2B64%2B63%2B62%2B61%2B60%2B59%2B58%2B57%2B56%2B55%2B49%2B48%2B47%2B46%2B45%2B44%2B43%2B42%2B41%2B40%2B39%2B38%2B37%2B36%2B35%2B34%2B33%2B32%2B31%2B30%2B29%2B28%2B27%2B26%2B25%2B24%2B23%2B22%2B21%2B20%2B54%2B53%2B52%2B51%2B50%2B19%2B18.AUS.Q&ly[cl]=TIME_PERIOD>
-Filters that were applied include:
-# Measures: "Estimated Resident Population"
-# Sex: "Males"; "Females"; "Persons"
-# Age:  (83 items) -> individual age from 18 (inclusive) to 99 and 100 and older group
-# Region: "Australia"
-# Frequency: "Quarterly"
-# Time period: "Start: 2015-Q1"; "End: 2022-Q2"
+\newpage
 
-These data were stored locally
+ABS data were extracted and stored locally on 30.01.22 from
+[https://explore.data.abs.gov.au](https://explore.data.abs.gov.au/vis?tm=quarterly%20population&pg=0&df%5Bds%5D=ABS_ABS_TOPICS&df%5Bid%5D=ERP_Q&df%5Bag%5D=ABS&df%5Bvs%5D=1.0.0&hc%5BFrequency%5D=Quarterly&pd=2015-Q1%2C2022-Q2&dq=1.2%2B1%2B3.85%2B86%2B87%2B88%2B89%2B90%2B91%2B92%2B100%2B99%2B98%2B97%2B96%2B95%2B94%2B93%2B84%2B83%2B82%2B81%2B80%2B79%2B78%2B77%2B76%2B75%2B74%2B73%2B72%2B71%2B70%2B69%2B68%2B67%2B66%2B65%2B64%2B63%2B62%2B61%2B60%2B59%2B58%2B57%2B56%2B55%2B49%2B48%2B47%2B46%2B45%2B44%2B43%2B42%2B41%2B40%2B39%2B38%2B37%2B36%2B35%2B34%2B33%2B32%2B31%2B30%2B29%2B28%2B27%2B26%2B25%2B24%2B23%2B22%2B21%2B20%2B54%2B53%2B52%2B51%2B50%2B19%2B18.AUS.Q&ly%5Bcl%5D=TIME_PERIOD){.uri}[\_](https://explore.data.abs.gov.au/vis?tm=quarterly%20population&pg=0&df%5Bds%5D=ABS_ABS_TOPICS&df%5Bid%5D=ERP_Q&df%5Bag%5D=ABS&df%5Bvs%5D=1.0.0&hc%5BFrequency%5D=Quarterly&pd=2015-Q1%2C2022-Q2&dq=1.2%2B1%2B3.85%2B86%2B87%2B88%2B89%2B90%2B91%2B92%2B100%2B99%2B98%2B97%2B96%2B95%2B94%2B93%2B84%2B83%2B82%2B81%2B80%2B79%2B78%2B77%2B76%2B75%2B74%2B73%2B72%2B71%2B70%2B69%2B68%2B67%2B66%2B65%2B64%2B63%2B62%2B61%2B60%2B59%2B58%2B57%2B56%2B55%2B49%2B48%2B47%2B46%2B45%2B44%2B43%2B42%2B41%2B40%2B39%2B38%2B37%2B36%2B35%2B34%2B33%2B32%2B31%2B30%2B29%2B28%2B27%2B26%2B25%2B24%2B23%2B22%2B21%2B20%2B54%2B53%2B52%2B51%2B50%2B19%2B18.AUS.Q&ly%5Bcl%5D=TIME_PERIOD){.uri}
+
+Filters that were applied include:
+
+-   Measures: "Estimated Resident Population"
+
+-   Sex: "Males"; "Females"; "Persons"
+
+-   Age: (83 items) -\> individual age from 18 (inclusive) to 99 and 100
+    and older group
+
+-   Region: "Australia"
+
+-   Frequency: "Quarterly"
+
+-   Time period: "Start: 2015-Q1"; "End: 2022-Q2"
 
 ```{r pop_data}
 ABS_ERP <- readr::read_csv("../data/ABS_ERP_22_23.01.30.csv", show_col_types = FALSE)
@@ -162,6 +206,7 @@ erpx <- erp %>%
 ```
 
 \newpage
+
 ## Part 1: Prevalence and incidence of ADHD medicines
 
 ```{r annual_prevalence}
@@ -320,9 +365,6 @@ prevalence_table$sex <- factor(prevalence_table$sex, levels = c("persons", "Male
 
 
 ```
-
-
-
 
 ```{r annual_incidence}
 
@@ -500,8 +542,9 @@ incidence_table %>%
 \newpage
 
 ## Part 2: Interrupted time series analysis of ADHD medicines from February 2016 to January 2022.
+
 Setting up Tsibbles for time series analysis.
-    
+
 ```{r set_disp_ts}
 
 # using tidyverts: Tsibbles:
@@ -580,8 +623,8 @@ nest_ts <- ts %>%
   nest()
 ```
 
-
-Exploring first whether data should be transformed and which differences are needed (are the data autocorrelated and seasonal)
+Exploring first whether data should be transformed and which differences
+are needed (are the data autocorrelated and seasonal)
 
 ```{r STL, eval = TRUE, include = FALSE}
 ## plot STL trend prior to intervention
@@ -603,6 +646,7 @@ for (i in 1:12) {
 
 ```
 
+\newpage
 
 ```{r plot_raw_season, warning=FALSE, eval = TRUE, include = FALSE}
 
@@ -652,7 +696,6 @@ for (vars in plot_vars) {
 
 ```
 
-
 ```{r markdown_plot_raw, warning = FALSE}
 
 for (i in 1:12) {
@@ -663,8 +706,9 @@ for (i in 1:12) {
 ft
 ```
 
+\newpage
 
-Model selection: Creating arma models and checking residuals
+##### Model selection: Creating arma models and checking residuals
 
 ```{r model_data}
 
@@ -755,6 +799,8 @@ plots <- pmap(list(p$models, p$sex, p$medicine), ~ ..1 %>% gg_tsresiduals(type =
   
 ```
 
+\newpage
+
 ```{r print_residual_check_table,  warning=FALSE}
 
 for (i in 1:12) {
@@ -767,7 +813,9 @@ ft
 
 ```
 
-Plotting figure 1 and estimates of change with 95% confidence intervals
+\newpage
+
+#### Plotting figure 1 and estimates of change with 95% confidence intervals
 
 ```{r seasonal_model_plot, eval = TRUE}
 
@@ -923,7 +971,9 @@ ft
  
 ```
 
-Reporting mean rate of dispensing in 12 months prior to and following the intervention. 
+\newpage
+
+#### Reporting mean rate of dispensing in 12 months prior to and following the intervention.
 
 ```{r mean_before_after}
 
@@ -946,28 +996,33 @@ mean_data %>%
 
 ```
 
-## References 
+## References
 
-Key packages used are referenced here: 
-Tidyverts: tsibble, fable, feasts
-Wang, E, D Cook, and RJ Hyndman (2020). A new tidy data structure to support exploration and modeling of temporal data, Journal of Computational and Graphical Statistics, 29:3, 466-478, doi:10.1080/10618600.2019.1695624
+Key packages used are referenced here: Tidyverts: tsibble, fable, feasts
+Wang, E, D Cook, and RJ Hyndman (2020). A new tidy data structure to
+support exploration and modeling of temporal data, Journal of
+Computational and Graphical Statistics, 29:3, 466-478,
+<doi:10.1080/10618600.2019.1695624>
 
-O'Hara-Wild M, Hyndman R, Wang E (2022). _fable: Forecasting Models for Tidy Time Series_. R
-  package version 0.3.2, <https://CRAN.R-project.org/package=fable>
-  
-O'Hara-Wild M, Hyndman R, Wang E (2022). _feasts: Feature Extraction and Statistics for Time
-  Series_. R package version 0.3.0, <https://CRAN.R-project.org/package=feasts>
-  
-ggplot2:
-Wickham H (2016). ggplot2: Elegant Graphics for Data Analysis. Springer-Verlag New York. ISBN 978-3-319-24277-4, https://ggplot2.tidyverse.org.
+O'Hara-Wild M, Hyndman R, Wang E (2022). *fable: Forecasting Models for
+Tidy Time Series*. R package version 0.3.2,
+<https://CRAN.R-project.org/package=fable>
 
-flextable:
-Gohel D, Skintzos P (2023). flextable: Functions for Tabular Reporting. https://ardata-fr.github.io/flextable-book/, https://davidgohel.github.io/flextable/.
+O'Hara-Wild M, Hyndman R, Wang E (2022). *feasts: Feature Extraction and
+Statistics for Time Series*. R package version 0.3.0,
+<https://CRAN.R-project.org/package=feasts>
 
-dplyr:
-Wickham H, François R, Henry L, Müller K (2022). _dplyr: A Grammar of Data Manipulation_. R
-  package version 1.0.10, <https://CRAN.R-project.org/package=dplyr>.
-  
-purrr:
- Wickham H, Henry L (2023). _purrr: Functional Programming Tools_. R package version 1.0.1,
-  <https://CRAN.R-project.org/package=purrr>.
+ggplot2: Wickham H (2016). ggplot2: Elegant Graphics for Data Analysis.
+Springer-Verlag New York. ISBN 978-3-319-24277-4,
+<https://ggplot2.tidyverse.org>.
+
+flextable: Gohel D, Skintzos P (2023). flextable: Functions for Tabular
+Reporting. <https://ardata-fr.github.io/flextable-book/>,
+<https://davidgohel.github.io/flextable/>.
+
+dplyr: Wickham H, François R, Henry L, Müller K (2022). *dplyr: A
+Grammar of Data Manipulation*. R package version 1.0.10,
+<https://CRAN.R-project.org/package=dplyr>.
+
+purrr: Wickham H, Henry L (2023). *purrr: Functional Programming Tools*.
+R package version 1.0.1, <https://CRAN.R-project.org/package=purrr>.
