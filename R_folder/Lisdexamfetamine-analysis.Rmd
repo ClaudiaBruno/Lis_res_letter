@@ -6,8 +6,8 @@ editor_options:
     wrap: 72
 ---
 
-We will be examining time series between **01 Feb 2016 and 31 Jan
-2022**. Our intervention date (change date) is **1 February 2021** when
+We will be examining time series between **01 Feb 2016 and 31 Jan 2022**. 
+Our intervention date (change date) is **1 February 2021** when
 the subsidy listing for lisdexamfetamine was expanded to allow people
 who were diagnosed with ADHD in adulthood subsidised access, prior to
 this adults who were diagnosed in adulthood were not eligible to access
@@ -77,10 +77,10 @@ library(ftExtra)
 session_info()
 
 options(scipen = 999)
-#supress warnings caused by group_by and summarise in dpylr;
+# supress warnings caused by group_by and summarise in dpylr;
 options(dplyr.summarise.inform = FALSE)
 
-#These two files load PBS data and extract ADHD medicine dispensings to dataframe called ADHD;
+# These two files load PBS data and extract ADHD medicine dispensings to dataframe called ADHD;
 source("Lisdexamfetamine-load.R")
 source("Lisdexamfetamine-clean.R")
 ```
@@ -210,7 +210,6 @@ erpx <- erp %>%
 ## Part 1: Prevalence and incidence of ADHD medicines
 
 ```{r annual_prevalence}
-
 # First dispensing per person per year;
 ADHD_1 <- ADHD %>%
   filter(age > 17) %>%
@@ -362,15 +361,12 @@ prevalence_table <- rbind(prevalence, prevalence_age_sex, prevalence_med, preval
 
 prevalence_table$age_group <- factor(prevalence_table$age_group, levels = c("Overall", "18--24 years", "25+ years", "Medicine"))
 prevalence_table$sex <- factor(prevalence_table$sex, levels = c("persons", "Male", "Female", "Male to female sex ratio", "Stimulant", "Dexamfetamine", "Lisdexamfetamine", "Methylphenidate", "Nonstimulant", "Atomoxetine", "Guanfacine", "Population"))
-
-
 ```
 
 ```{r annual_incidence}
-
 min_date <- as.Date("01-01-2015")
 
-#incident dispensings, lookback period of at least 18 months;
+# incident dispensings, lookback period of at least 18 months;
 ADHD_1 <- ADHD %>%
   group_by(pat_id) %>%
   arrange(pat_id, supp_date) %>%
@@ -490,13 +486,13 @@ ERP_2021 <- ERP_overall %>%
 
 sexratio_18 <- incidence_age_sex %>%
   filter(sex != "persons" & age_group == "18--24 years") %>%
- separate(rate, "prev", sep = " ", extra = "drop") %>%
+  separate(rate, "prev", sep = " ", extra = "drop") %>%
   select(age_group, prev, sex) %>%
   mutate(prev = as.numeric(prev))
 
 sexratio_25 <- incidence_age_sex %>%
   filter(sex != "persons" & age_group == "25+ years") %>%
-separate(rate, "prev", sep = " ", extra = "drop") %>%
+  separate(rate, "prev", sep = " ", extra = "drop") %>%
   select(age_group, prev, sex) %>%
   mutate(prev = as.numeric(prev))
 
@@ -533,10 +529,8 @@ incidence_table %>%
   bold(bold = TRUE, part = "header") %>%
   set_header_labels(sex = "", rate_inc = "Incidence (n)", rate = "Prevalence (n)") %>%
   add_footer_lines("ADHD, attention-deficit/hyperactivity disorder") %>%
-  autofit() %>% 
+  autofit() %>%
   add_header_lines("Table 1. Incidence and prevalence of ADHD medicine use per 1000 adults in Australia in 2021, by age, sex and ADHD medicine")
-  
-  
 ```
 
 \newpage
@@ -546,7 +540,6 @@ incidence_table %>%
 Setting up Tsibbles for time series analysis.
 
 ```{r set_disp_ts}
-
 # using tidyverts: Tsibbles:
 # Index is a variable with inherent ordering from past to present.
 # Key is a set of variables that define observational units over time.
@@ -574,16 +567,16 @@ all_sex <- ADHD %>%
 
 all <- rbind(all, all_sex)
 
-ts <- tsibble(all, key = c(sex, medicine), index = date) %>% 
-  fill_gaps() %>% 
-  filter_index("2016-02"~ "2022-01")
+ts <- tsibble(all, key = c(sex, medicine), index = date) %>%
+  fill_gaps() %>%
+  filter_index("2016-02" ~ "2022-01")
 
 # define change date
 change_date <- "2021-02-01"
 
-#pre-intervention data - to map pre-intervention trend
-ts2 <- ts %>% 
-  filter_index("2016-02"~ change_date) %>% 
+# pre-intervention data - to map pre-intervention trend
+ts2 <- ts %>%
+  filter_index("2016-02" ~ change_date) %>%
   fill_gaps() %>%
   inner_join(erpx, by = c("sex", "date")) %>%
   mutate(rate = (cnt * 10000) / value, cnt = as.numeric(cnt * 10))
@@ -591,7 +584,7 @@ ts2 <- ts %>%
 ramp <- ts %>%
   ungroup() %>%
   filter(medicine == "Dexamfetamine" & sex == "Female") %>%
-  filter_index(change_date ~.) %>% #tsibble filter function - all records from change date until end
+  filter_index(change_date ~ .) %>% # tsibble filter function - all records from change date until end
   select(date) %>%
   mutate(ramp = 1:n())
 
@@ -642,22 +635,19 @@ plot_all <- plot_stl %>% mutate(
 for (i in 1:12) {
   print(plot_all$plot[[i]])
 }
-
-
 ```
 
 \newpage
 
 ```{r plot_raw_season, warning=FALSE, eval = TRUE, include = FALSE}
-
-#create function for plotting seasonal data and autocorrelation;
+# create function for plotting seasonal data and autocorrelation;
 plot_fun <- function(nest_data, y) {
   nest_data %>%
     mutate(plot = pmap(list(data, medicine, sex), ~ gg_tsdisplay(..1, y = .data[[y]], plot_type = "season") +
       labs(title = paste(y, "plots for", ..2, ..3, sep = " "))))
 }
 
-#create function for testing autocorrelation;
+# create function for testing autocorrelation;
 
 uniroot_fun <- function(nest_data, y) {
   nest_data %>%
@@ -693,14 +683,12 @@ for (vars in plot_vars) {
   plot(ft, method = "grob")
   dev.off()
 }
-
 ```
 
 ```{r markdown_plot_raw, warning = FALSE}
-
 for (i in 1:12) {
-    plot.new()
-    print(plot_all[["plot"]][[i]])
+  plot.new()
+  print(plot_all[["plot"]][[i]])
 }
 
 ft
@@ -711,7 +699,6 @@ ft
 ##### Model selection: Creating arma models and checking residuals
 
 ```{r model_data}
-
 model_ts <- ts %>%
   model(
     seasonal_arma_log = ARIMA(log(rate) ~ pdq(d = 0) + PDQ(D = 1) + step + ramp + trend(), stepwise = FALSE),
@@ -727,7 +714,7 @@ model_ts <- ts %>%
 seasonal_lag <- min(12 * 2, (nrow(nest_ts$data[[1]])) / 5)
 seasonal_lag2 <- min(12 * 2, (nrow(nest_ts$data[[1]]) - 12) / 5)
 
-#check model AICcs;
+# check model AICcs;
 
 model_ts %>%
   glance() %>%
@@ -766,51 +753,46 @@ filter_fun <- function(mable_data, model_var) {
     test2 = map2_dfr(augment, para, ~ .x %>%
       features(.innov, ljung_box, lag = seasonal_lag2, dof = .y)),
     # extract model specs
-   model_name = map_chr(models, ~ .x[[1]][[1]] %>% model_sum() )
+    model_name = map_chr(models, ~ .x[[1]][[1]] %>% model_sum())
   )
 }
-
 ```
 
 ```{r residual_plots, eval = TRUE, warning = FALSE, include = FALSE}
-
-#plot residuals for models and table of ljung pvalue test 
-#gg_tsresidual may only work on one single mable.
+# plot residuals for models and table of ljung pvalue test
+# gg_tsresidual may only work on one single mable.
 
 model <- c("seasonal_arma_log")
 
 
-#for (model in models) {
-  # plot function
-  p <- filter_fun(model_ts, model)
+# for (model in models) {
+# plot function
+p <- filter_fun(model_ts, model)
 
-  # create flextable object for residual test table
-  ft <- p %>%
-    select(medicine, sex, model_name, contains("test2")) %>%
-    unnest(test2) %>%
-    arrange(sex) %>%
-    as_grouped_data(groups = c(".model", "sex")) %>%
-    flextable() %>%
-    bold(i = ~ lb_pvalue < 0.05, 6) %>% #
-    font(fontname = "sans", part = "all") %>% 
-    add_header_lines("Check residuals with ljung box test, pvalue and stat")
+# create flextable object for residual test table
+ft <- p %>%
+  select(medicine, sex, model_name, contains("test2")) %>%
+  unnest(test2) %>%
+  arrange(sex) %>%
+  as_grouped_data(groups = c(".model", "sex")) %>%
+  flextable() %>%
+  bold(i = ~ lb_pvalue < 0.05, 6) %>% #
+  font(fontname = "sans", part = "all") %>%
+  add_header_lines("Check residuals with ljung box test, pvalue and stat")
 
-plots <- pmap(list(p$models, p$sex, p$medicine), ~ ..1 %>% gg_tsresiduals(type = "innovation", lag_max = 24) + labs(title = paste("Residual plot for", model, ..2, ..3, sep = " ") ) )
-  
+plots <- pmap(list(p$models, p$sex, p$medicine), ~ ..1 %>% gg_tsresiduals(type = "innovation", lag_max = 24) + labs(title = paste("Residual plot for", model, ..2, ..3, sep = " ")))
 ```
 
 \newpage
 
 ```{r print_residual_check_table,  warning=FALSE}
-
 for (i in 1:12) {
- plot.new()
- print(plots[[i]])
- }
+  plot.new()
+  print(plots[[i]])
+}
 
 
 ft
-
 ```
 
 \newpage
@@ -818,7 +800,6 @@ ft
 #### Plotting figure 1 and estimates of change with 95% confidence intervals
 
 ```{r seasonal_model_plot, eval = TRUE}
-
 model <- c("seasonal_arma_log")
 
 
@@ -872,8 +853,8 @@ ft <- pivot_wider_spec(tidy_estimates %>% select(-estimate, -.model), specs) %>%
   flextable::font(fontname = "sans", part = "all") %>%
   set_header_labels(sex = "Sex", medicine = "Medicine") %>%
   separate_header(split = "[_]", opts = c("center-hspan")) %>%
-  autofit()%>% 
-    add_header_lines("Time series estimates for each change effect, step, ramp, trend")
+  autofit() %>%
+  add_header_lines("Time series estimates for each change effect, step, ramp, trend")
 
 
 fit_specs <- p %>%
@@ -893,8 +874,8 @@ mean_data <- nest_ts %>%
       mutate(time = date - yearmonth(min(date)))),
 
 
- # baseline for seasonal differences;
- 
+    # baseline for seasonal differences;
+
     data_mean = map_dbl(data, ~ .x %>%
       filter(time %in% c(0:11)) %>%
       mutate(mean = mean(log(rate))) %>%
@@ -945,7 +926,7 @@ plot <- df %>%
     panel.grid.minor.y = element_blank(),
     panel.grid.minor.x = element_blank(),
     legend.position = "bottom",
-    panel.border = element_rect(colour = "darkgrey", fill = NA), 
+    panel.border = element_rect(colour = "darkgrey", fill = NA),
     axis.line = element_line(color = "black")
   )
 
@@ -962,13 +943,12 @@ ggsave(
 )
 
 
-#print figure 1 
+# print figure 1
 print(plot)
 
-#print time series estimates
+# print time series estimates
 
 ft
- 
 ```
 
 \newpage
@@ -976,24 +956,22 @@ ft
 #### Reporting mean rate of dispensing in 12 months prior to and following the intervention.
 
 ```{r mean_before_after}
-
-#based on data including April 2020 (removed from time series)
+# based on data including April 2020 (removed from time series)
 
 mean_data <- tss %>%
   inner_join(erpx, by = c("date", "sex")) %>%
   mutate(rate = (cnt * 10000) / value) %>%
   select(date, medicine, sex, rate) %>%
-  filter_index( "2020-02-01"~"2022-01-31") %>% 
-  mutate(year_time = ifelse(as.Date(date)<=as.Date("2021-01-31"), "mean_before", "mean_following")) %>% 
+  filter_index("2020-02-01" ~ "2022-01-31") %>%
+  mutate(year_time = ifelse(as.Date(date) <= as.Date("2021-01-31"), "mean_before", "mean_following")) %>%
   as_tibble() %>%
   group_by(sex, medicine, year_time) %>%
-    summarise(mean = mean(rate))
+  summarise(mean = mean(rate))
 
 mean_data %>%
   pivot_wider(id_cols = c(sex, medicine), names_from = year_time, values_from = mean) %>%
   flextable() %>%
   add_header_lines("Mean monthly dispensings in year before and following intervention")
-
 ```
 
 ## References
